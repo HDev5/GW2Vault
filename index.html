@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GW2 Vault — Bank, Materials & Trading Post</title>
+<meta name="description" content="View your Guild Wars 2 bank, material storage, character inventories and live Trading Post prices. Paste your API key and go."/>
+<meta name="theme-color" content="#1a1208"/>
+<meta property="og:title" content="GW2 Vault"/>
+<meta property="og:description" content="View your GW2 bank, materials, characters and Trading Post prices."/>
+<meta property="og:url" content="https://gw2vault.com"/>
+<link rel="canonical" href="https://gw2vault.com"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;}
+body{background:#1a1208;font-family:'Georgia',serif;color:#e8d8b0;display:flex;flex-direction:column;}
+.game-bg{position:fixed;inset:0;background:radial-gradient(ellipse at 30% 70%,#2a1800 0%,#0d0a04 60%,#000 100%);z-index:0}
+#shell{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;}
+
+#loginScreen{flex:1;display:flex;align-items:center;justify-content:center;}
+.login-box{background:linear-gradient(160deg,#211708,#160e04);border:1px solid #7a5518;border-radius:10px;padding:36px 40px;width:min(480px,92vw);box-shadow:0 12px 60px #000d,0 0 0 1px #c8902a18,inset 0 1px 0 #c8902a28;position:relative;z-index:1;}
+.login-logo{text-align:center;margin-bottom:24px;}
+.login-title{font-size:22px;font-weight:700;color:#e8c060;font-variant:small-caps;letter-spacing:.06em;text-align:center;margin-bottom:6px;}
+.login-sub{font-size:13px;color:#7a6030;text-align:center;margin-bottom:28px;line-height:1.6;}
+.login-label{font-size:12px;color:#a09060;display:block;margin-bottom:6px;}
+.login-input{width:100%;background:#0d0a04;border:1px solid #5a4010;border-radius:4px;color:#e8d8b0;padding:9px 12px;font-family:'Courier New',monospace;font-size:12px;outline:none;transition:border-color .15s;margin-bottom:14px;}
+.login-input:focus{border-color:#c8902a;}
+.login-input::placeholder{color:#4a3818;}
+.login-btn{width:100%;background:linear-gradient(145deg,#8a5418,#4a2a06);border:1px solid #c8802a;color:#e8c060;padding:10px;border-radius:6px;cursor:pointer;font-size:14px;font-variant:small-caps;letter-spacing:.04em;transition:background .15s,box-shadow .15s;box-shadow:0 2px 8px #0008,inset 0 1px 0 #e8c06022;}
+.login-btn:hover{background:linear-gradient(145deg,#a86c28,#6a3a08);box-shadow:0 3px 12px #0009,inset 0 1px 0 #e8c06033;}
+.login-btn:disabled{opacity:.5;cursor:not-allowed;}
+.login-perms{font-size:11px;color:#4a3818;text-align:center;margin-top:14px;line-height:1.7;}
+.login-perms a{color:#7a5828;text-decoration:none;}
+.login-perms a:hover{color:#c8902a;}
+.login-error{color:#c84030;font-size:12px;text-align:center;margin-top:10px;min-height:18px;}
+
+#appChrome{display:none;flex-direction:column;flex:1;overflow:hidden;}
+
+.panel-header{background:linear-gradient(90deg,#2e1c04 0%,#1c1004 40%,#2e1c04 100%);border-bottom:1px solid #7a5518;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;box-shadow:0 2px 16px #000c,inset 0 -1px 0 #c8902a22;}
+.panel-title{font-size:17px;font-weight:700;color:#e8c060;letter-spacing:.04em;flex:1;font-variant:small-caps}
+.header-btn{background:linear-gradient(145deg,#1e1408,#140e04);border:1px solid #6a4a18;color:#a08040;height:26px;border-radius:5px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s,color .15s;padding:0 10px;gap:5px;white-space:nowrap;box-shadow:0 1px 4px #0006}
+.header-btn:hover{background:linear-gradient(145deg,#3a2005,#2a1604);border-color:#c8902a;color:#e8c060}
+.header-account{font-size:12px;color:#a08040;}
+.header-signout{background:none;border:1px solid #4a2010;color:#7a4030;padding:3px 9px;border-radius:3px;cursor:pointer;font-size:11px;transition:all .12s;font-variant:small-caps;}
+.header-signout:hover{border-color:#c84030;color:#e84030;}
+
+/* currency bar — improved legibility */
+.currency-bar{background:#0d0902;border-bottom:1px solid #2a1a08;padding:8px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;}
+.currency-item{display:flex;align-items:center;gap:6px;white-space:nowrap;background:linear-gradient(135deg,#1e1508,#141008);border:1px solid #3a2410;border-radius:5px;padding:4px 9px;box-shadow:inset 0 1px 0 #ffffff08,0 1px 3px #0006;}
+.currency-item img{width:18px;height:18px;border-radius:2px;flex-shrink:0;}
+.currency-name{font-size:10px;color:#7a6030;font-variant:small-caps;letter-spacing:.04em;margin-right:2px;}
+.currency-gold{font-size:13px;font-weight:700;color:#fcd00b;letter-spacing:.01em;}
+.currency-gold .denom{font-size:10px;font-weight:400;color:#c8a800;margin-left:1px;}
+.currency-silver{font-size:13px;font-weight:700;color:#d0d0d0;letter-spacing:.01em;}
+.currency-silver .denom{font-size:10px;font-weight:400;color:#a0a0a0;margin-left:1px;}
+.currency-copper{font-size:13px;font-weight:700;color:#e07830;letter-spacing:.01em;}
+.currency-copper .denom{font-size:10px;font-weight:400;color:#b05820;margin-left:1px;}
+.currency-val{font-size:13px;font-weight:700;color:#e8c060;}
+.currency-manage-btn{margin-left:auto;background:none;border:1px solid #4a3010;color:#907050;padding:3px 9px;border-radius:3px;cursor:pointer;font-size:11px;font-variant:small-caps;transition:all .12s;white-space:nowrap;flex-shrink:0;}
+.currency-manage-btn:hover{border-color:#c8902a;color:#e8c060}
+
+.global-search-panel{border-bottom:1px solid #3a2a0a;background:#0f0b04;padding:10px 16px;display:flex;gap:8px;align-items:center;flex-shrink:0;}
+.global-search-wrap{flex:1;position:relative;display:flex;align-items:center}
+.global-search-icon{position:absolute;left:10px;color:#5a4820;pointer-events:none}
+.global-search-input{width:100%;background:#0d0a04;border:1px solid #5a4010;border-radius:4px;color:#e8d8b0;padding:7px 32px;font-size:13px;outline:none;transition:border-color .15s}
+.global-search-input:focus{border-color:#c8902a}
+.global-search-input::placeholder{color:#4a3818}
+.global-search-clear{position:absolute;right:8px;background:none;border:none;color:#5a4820;cursor:pointer;font-size:15px;line-height:1;padding:2px;transition:color .12s}
+.global-search-clear:hover{color:#e8c060}
+.global-search-count{font-size:12px;color:#7a6030;white-space:nowrap}
+.global-search-count span{color:#e8c060}
+
+.nav-tabs{display:flex;border-bottom:1px solid #3a2a0a;background:#110c04;overflow-x:auto;scrollbar-width:none;flex-shrink:0;}
+.nav-tabs::-webkit-scrollbar{display:none}
+.nav-tab{padding:9px 18px;cursor:pointer;font-size:12px;font-weight:700;color:#7a6030;border-bottom:2px solid transparent;letter-spacing:.04em;transition:color .15s,background .15s;user-select:none;white-space:nowrap;font-variant:small-caps;border-radius:4px 4px 0 0;}
+.nav-tab.active{color:#e8c060;border-bottom-color:#c8902a;background:linear-gradient(180deg,#1e140844 0%,transparent 100%);}
+.nav-tab:hover:not(.active){color:#c0a050;background:#1a120833;}
+
+/* critical: flex:1 + min-height:0 keeps content from overflowing nav */
+.tab-content{flex:1;overflow-y:auto;padding:14px;scrollbar-width:thin;scrollbar-color:#5a3a0a transparent;min-height:0;}
+.tab-content::-webkit-scrollbar{width:6px}
+.tab-content::-webkit-scrollbar-thumb{background:#5a3a0a;border-radius:3px}
+
+.info-bar{display:flex;gap:14px;padding:5px 14px;background:#0d0902;border-top:1px solid #2a1a08;font-size:11px;color:#7a6030;flex-wrap:wrap;align-items:center;flex-shrink:0;}
+.info-bar span{color:#e8c060}
+.price-status-bar{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:10px}
+.price-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.price-dot.fresh{background:#5a9050}
+.price-dot.stale{background:#9a6030}
+.price-dot.expired{background:#c84030}
+.price-dot.none{background:#3a2808}
+.refresh-all-btn{background:none;border:1px solid #4a3010;color:#7a6030;padding:2px 7px;border-radius:3px;cursor:pointer;font-size:10px;transition:all .12s;font-variant:small-caps}
+.refresh-all-btn:hover{border-color:#c8902a;color:#e8c060}
+
+/* per-tab filter bar — lives outside content so no re-render on type */
+.tab-filter-bar{padding:10px 14px 0;flex-shrink:0;display:none;}
+.tab-filter-bar.visible{display:block;}
+.search-input{width:100%;background:#0d0a04;border:1px solid #4a3010;border-radius:4px;color:#e8d8b0;padding:6px 10px;font-size:12px;outline:none;transition:border-color .15s;}
+.search-input:focus{border-color:#c8902a;}
+.search-input::placeholder{color:#5a4820;}
+
+.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:4px}
+
+/* bank sections */
+.bank-section{margin-bottom:20px;}
+.bank-section-header{font-size:12px;color:#b09050;letter-spacing:.06em;margin-bottom:8px;padding:5px 12px;background:linear-gradient(90deg,#221608,#1a1208 60%,transparent);border-left:3px solid #c8902a;border-radius:0 4px 4px 0;font-variant:small-caps;display:flex;align-items:center;gap:8px;}
+.bank-section-header span{color:#6a5030;font-size:11px;margin-left:auto;}
+
+/* char sections */
+.char-section{margin-bottom:24px}
+.char-header{margin-bottom:10px;padding:8px 12px;background:linear-gradient(90deg,#221608,#1a1208 60%,transparent);border-left:3px solid #c8902a;border-radius:0 4px 4px 0;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.char-name{font-size:14px;color:#e8c060;font-variant:small-caps;font-weight:700;}
+.char-meta{font-size:11px;color:#8a6a30;}
+.char-count{font-size:11px;color:#6a5030;margin-left:auto;}
+
+/* mat sections */
+.mat-cat{margin-bottom:16px}
+.section-title{font-size:12px;color:#a08040;letter-spacing:.06em;margin-bottom:7px;padding-bottom:3px;border-bottom:1px solid #3a2808;font-variant:small-caps}
+
+.slot{width:56px;height:56px;background:#0d0902;border:1px solid #3a2808;border-radius:4px;position:relative;cursor:pointer;transition:border-color .15s,transform .12s,box-shadow .15s;overflow:visible}
+.slot:hover{border-color:#c8902a;z-index:20;transform:scale(1.08);box-shadow:0 0 10px #c8902a55,0 2px 8px #000a;}
+.slot.empty{opacity:.22;cursor:default}
+.slot.empty:hover{transform:none;border-color:#3a2808}
+.slot img.item-icon{width:100%;height:100%;object-fit:cover;display:block;border-radius:2px}
+.slot .count{position:absolute;bottom:1px;right:2px;font-size:10px;font-weight:700;color:#fff;text-shadow:1px 1px 2px #000,-1px -1px 2px #000;pointer-events:none;line-height:1}
+
+.tooltip-box{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#1c1208f8;border:1px solid #c8902a;border-radius:6px;padding:10px 13px;font-size:12px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .15s;color:#e8d8b0;text-align:left;box-shadow:0 8px 32px #000d,0 0 0 1px #7a501822;min-width:160px;max-width:240px}
+.slot:hover .tooltip-box{opacity:1}
+.slot.tt-below .tooltip-box{bottom:auto;top:calc(100% + 8px);}
+.slot.tt-left .tooltip-box{left:0;transform:none;}
+.slot.tt-right .tooltip-box{left:auto;right:0;transform:none;}
+.tooltip-box strong{color:#e8c060;font-size:12px;display:block;margin-bottom:3px}
+.tt-rarity{font-size:11px;margin-bottom:5px}
+.tt-price-block{border-top:1px solid #3a2808;padding-top:6px;margin-top:4px}
+.tt-price-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:2px;gap:8px}
+.tt-price-label{color:#8a7040}
+.tt-price-val.buy{color:#60c870;font-weight:700}
+.tt-price-val.sell{color:#e8a030;font-weight:700}
+.tt-loading{color:#7a6030;font-size:11px;font-style:italic}
+.tt-no-tp{color:#6a5030;font-size:11px;font-style:italic}
+.tt-freshness{font-size:10px;margin-top:3px}
+.tt-freshness.stale{color:#9a6030}
+.tt-freshness.expired{color:#c84030}
+.tt-hint{font-size:10px;color:#6a5030;margin-top:5px;border-top:1px solid #2a1a08;padding-top:4px}
+
+.item-popup{position:fixed;background:linear-gradient(160deg,#1e1408,#140e04);border:1px solid #c8902a;border-radius:8px;padding:14px;z-index:9999;min-width:230px;max-width:310px;box-shadow:0 12px 50px #000e,0 0 0 1px #c8902a22,inset 0 1px 0 #c8902a18;display:none}
+.item-popup.visible{display:block}
+.pop-name{font-size:14px;font-weight:700;color:#e8c060;margin-bottom:3px}
+.pop-rarity{font-size:12px;margin-bottom:6px}
+.pop-tp{margin-bottom:8px;padding:8px;background:#110c04;border-radius:4px;border:1px solid #2a1a08}
+.pop-tp-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;gap:8px}
+.pop-tp-label{color:#8a7040}
+.pop-tp-val.buy{color:#60c870;font-weight:700}
+.pop-tp-val.sell{color:#e8a030;font-weight:700}
+.pop-tp-loading{color:#7a6030;font-size:12px;font-style:italic;text-align:center;padding:4px 0}
+.pop-freshness{font-size:10px;margin-top:6px;padding-top:5px;border-top:1px solid #2a1a08;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pop-freshness-label.fresh{color:#5a9050}
+.pop-freshness-label.stale{color:#9a6030}
+.pop-freshness-label.expired{color:#c84030}
+.pop-freshness-label{color:#6a5030}
+.pop-refresh-btn{background:none;border:1px solid #4a3010;color:#907050;padding:2px 7px;border-radius:3px;cursor:pointer;font-size:10px;transition:all .12s;font-variant:small-caps}
+.pop-refresh-btn:hover{border-color:#c8902a;color:#e8c060}
+.pop-refresh-btn:disabled{opacity:.4;cursor:not-allowed}
+.pop-actions{display:flex;gap:8px}
+.pop-btn{flex:1;background:#2a1800;border:1px solid #7a5018;color:#c0a050;padding:6px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:center;transition:all .12s;font-variant:small-caps}
+.pop-btn:hover{background:#3a2805;border-color:#c8902a;color:#e8c060}
+.pop-btn.primary{background:#5a3a10;border-color:#c8902a;color:#e8c060}
+.pop-btn.primary:hover{background:#7a5020}
+.pop-overlay{position:fixed;inset:0;z-index:9998;display:none}
+.pop-overlay.visible{display:block}
+
+.status{text-align:center;padding:60px 20px;color:#7a6030;font-size:14px}
+.status .icon{font-size:30px;display:block;margin-bottom:10px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid #3a2808;border-top-color:#c8902a;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* global search results */
+.gs-results{display:flex;flex-direction:column;gap:6px}
+.gs-group{background:#110c04;border:1px solid #2e1e0a;border-radius:6px;overflow:hidden;box-shadow:0 2px 8px #0005;}
+.gs-group-header{padding:7px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;transition:background .12s}
+.gs-group-header:hover{background:#1a1208}
+.gs-group-title{font-size:12px;font-variant:small-caps;color:#c0a050;font-weight:700}
+.gs-group-badge{background:#3a2005;border:1px solid #7a5018;color:#e8c060;font-size:10px;padding:1px 7px;border-radius:10px;font-variant:normal}
+.gs-group-arrow{color:#5a4820;font-size:12px;transition:transform .15s;margin-left:auto;}
+.gs-group.collapsed .gs-group-arrow{transform:rotate(-90deg)}
+.gs-group-body{padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:4px;border-top:1px solid #1a1208}
+.gs-group.collapsed .gs-group-body{display:none}
+.gs-empty{text-align:center;padding:40px 20px;color:#5a4820;font-size:14px}
+.gs-empty-icon{font-size:28px;display:block;margin-bottom:8px}
+.gs-goto{font-size:10px;font-variant:small-caps;background:none;border:1px solid #4a3010;color:#907050;padding:2px 7px;border-radius:3px;cursor:pointer;transition:all .12s;white-space:nowrap;}
+.gs-goto:hover{border-color:#c8902a;color:#e8c060}
+
+/* currency modal */
+.currency-modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center}
+.currency-modal.visible{display:flex}
+.cm-backdrop{position:absolute;inset:0;background:#000a}
+.cm-panel{position:relative;background:#1e1408;border:1px solid #7a5518;border-radius:6px;padding:18px;min-width:320px;max-width:480px;width:90%;z-index:1;max-height:80vh;display:flex;flex-direction:column}
+.cm-title{font-size:15px;color:#e8c060;margin-bottom:12px;font-variant:small-caps;font-weight:700}
+.cm-list{overflow-y:auto;flex:1;display:grid;grid-template-columns:1fr 1fr;gap:7px;padding-right:4px;scrollbar-width:thin;scrollbar-color:#5a3a0a transparent}
+.cm-item{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:4px;border:1px solid #3a2808;cursor:pointer;transition:all .12s;background:#140e04}
+.cm-item.selected{border-color:#c8902a;background:#2a1800}
+.cm-item img{width:20px;height:20px;border-radius:2px;flex-shrink:0}
+.cm-item-name{font-size:11px;color:#c0a060;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-item.selected .cm-item-name{color:#e8c060}
+.cm-check{width:14px;height:14px;border:1px solid #5a4010;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#c8902a;flex-shrink:0}
+.cm-item.selected .cm-check{background:#c8902a;border-color:#c8902a;color:#1e1408}
+.cm-footer{margin-top:12px;display:flex;gap:8px;justify-content:flex-end}
+.cm-btn{background:linear-gradient(145deg,#7a4a10,#4a2a06);border:1px solid #c8802a;color:#e8c060;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:13px;font-variant:small-caps}
+.cm-btn:hover{background:linear-gradient(145deg,#9a6020,#6a3a08)}
+</style>
+</head>
+<body>
+<div class="game-bg"></div>
+
+<div class="item-popup" id="itemPopup">
+  <div class="pop-name" id="popName"></div>
+  <div class="pop-rarity" id="popRarity"></div>
+  <div class="pop-tp" id="popTp"><div class="pop-tp-loading">Loading prices...</div></div>
+  <div class="pop-freshness" id="popFreshness" style="display:none">
+    <span class="pop-freshness-label" id="popFreshnessLabel"></span>
+    <button class="pop-refresh-btn" id="popRefreshBtn">&#8635; Refresh</button>
+  </div>
+  <div class="pop-actions" style="margin-top:10px">
+    <button class="pop-btn" id="popCopy">Copy Name</button>
+    <button class="pop-btn primary" id="popWiki">Open Wiki &#8599;</button>
+  </div>
+</div>
+<div class="pop-overlay" id="popOverlay"></div>
+
+<div class="currency-modal" id="currencyModal">
+  <div class="cm-backdrop" id="cmBackdrop"></div>
+  <div class="cm-panel">
+    <div class="cm-title">&#9881; Track Currencies</div>
+    <div class="cm-list" id="cmList"></div>
+    <div class="cm-footer"><button class="cm-btn" id="cmDone">Done</button></div>
+  </div>
+</div>
+
+<div id="shell">
+  <div id="loginScreen">
+    <div class="game-bg"></div>
+    <div class="login-box">
+      <div class="login-logo">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c8902a" stroke-width="1.4">
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+          <line x1="12" y1="12" x2="12" y2="16"/>
+          <line x1="10" y1="14" x2="14" y2="14"/>
+        </svg>
+      </div>
+      <div class="login-title">Account Vault</div>
+      <div class="login-sub">Access your bank, materials, characters and Trading Post prices.</div>
+      <label class="login-label" for="loginKey">GW2 API Key</label>
+      <input class="login-input" id="loginKey" type="password" placeholder="Paste your API key here..." autocomplete="off"/>
+      <button class="login-btn" id="loginBtn">Open Vault</button>
+      <div class="login-error" id="loginError"></div>
+      <div class="login-perms">
+        Generate at <a href="https://account.arena.net/applications" target="_blank">account.arena.net</a> &rarr; Applications<br>
+        Permissions needed: <strong style="color:#7a5828">account &nbsp;&#183;&nbsp; inventories &nbsp;&#183;&nbsp; characters &nbsp;&#183;&nbsp; wallet</strong>
+      </div>
+    </div>
+  </div>
+
+  <div id="appChrome">
+    <div class="panel-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c8902a" stroke-width="1.8" style="flex-shrink:0">
+        <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+      </svg>
+      <span class="panel-title">Account Vault</span>
+      <span class="header-account" id="accountName"></span>
+      <button class="header-btn" id="globalSearchBtn" title="Find item everywhere (Ctrl+F)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Find Item
+      </button>
+      <button class="header-signout" id="signOutBtn">&#8592; Sign Out</button>
+    </div>
+
+    <div class="currency-bar" id="currencyBar">
+      <span style="font-size:10px;color:#5a4820;font-variant:small-caps;flex-shrink:0;">Wallet</span>
+      <div id="currencyDisplay" style="display:flex;gap:8px;flex-wrap:wrap;flex:1;align-items:center;"></div>
+      <button class="currency-manage-btn" id="manageBtn">&#9881; Manage</button>
+    </div>
+
+    <div class="global-search-panel" id="globalSearchPanel" style="display:none">
+      <div class="global-search-wrap">
+        <svg class="global-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="global-search-input" id="globalSearchInput" placeholder="Search all tabs — bank, materials, characters..." autocomplete="off"/>
+        <button class="global-search-clear" id="globalSearchClear">&#10005;</button>
+      </div>
+      <div class="global-search-count" id="globalSearchCount"></div>
+    </div>
+
+    <div class="nav-tabs" id="navTabs"></div>
+
+    <!-- Per-tab search bar lives here, outside scroll area, avoids re-render -->
+    <div class="tab-filter-bar" id="tabFilterBar">
+      <input class="search-input" id="tabSearchInput" placeholder="Search items..." autocomplete="off"/>
+    </div>
+
+    <div class="tab-content" id="mainContent">
+      <div class="status"><span class="spinner"></span> Loading...</div>
+    </div>
+
+    <div class="info-bar" id="infoBar">
+      <div>Slots: <span id="infoSlots">-</span></div>
+      <div>Items: <span id="infoItems">-</span></div>
+      <div>Shown: <span id="infoShown">-</span></div>
+      <div class="price-status-bar" id="priceStatusBar" style="display:none">
+        <div class="price-dot" id="priceDot"></div>
+        <span id="priceStatusText" style="color:#7a6030"></span>
+        <button class="refresh-all-btn" id="refreshAllBtn">&#8635; Refresh Prices</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY='gw2vault_apikey';
+const SELECTED_CUR_KEY='gw2vault_currencies';
+const PRICE_CACHE_KEY='gw2vault_prices';
+const PRICE_TTL=4*60*60*1000;
+const PRICE_STALE=2*60*60*1000;
+const $=id=>document.getElementById(id);
+
+const loginScreen=$('loginScreen'),appChrome=$('appChrome');
+const loginKey=$('loginKey'),loginBtn=$('loginBtn'),loginError=$('loginError');
+const mainContent=$('mainContent'),navTabs=$('navTabs'),infoBar=$('infoBar');
+const currencyDisplay=$('currencyDisplay'),manageBtn=$('manageBtn');
+const currencyModal=$('currencyModal'),cmList=$('cmList'),cmDone=$('cmDone'),cmBackdrop=$('cmBackdrop');
+const itemPopup=$('itemPopup'),popOverlay=$('popOverlay');
+const priceStatusBar=$('priceStatusBar'),priceDot=$('priceDot'),priceStatusText=$('priceStatusText'),refreshAllBtn=$('refreshAllBtn');
+const popFreshness=$('popFreshness'),popFreshnessLabel=$('popFreshnessLabel'),popRefreshBtn=$('popRefreshBtn');
+const globalSearchBtn=$('globalSearchBtn'),globalSearchPanel=$('globalSearchPanel');
+const globalSearchInput=$('globalSearchInput'),globalSearchClear=$('globalSearchClear'),globalSearchCount=$('globalSearchCount');
+const signOutBtn=$('signOutBtn'),accountName=$('accountName');
+const tabFilterBar=$('tabFilterBar'),tabSearchInput=$('tabSearchInput');
+
+let bankData=null,materialsData=null,walletData=null;
+let currencyDefs=[],characterNames=[],characterData={},characterInventories={};
+let itemCache={},priceCache={},priceLoading=new Set();
+let currentTab='bank',searchTerm='';
+let selectedCurrencies=new Set([1,2,3,4,5,23,45]);
+let currentPopupItem=null,currentPopupCount=1,clickTimer=null;
+let priceRefreshTimer=null,globalSearchActive=false,globalSearchTerm='';
+
+const MAT_CATS={5:'Cooking Materials',6:'Refinement',29:'Common Crafting',30:'Rare Crafting',46:'Gemstones',47:'Jewelry',37:'Festive',38:'Ascended',49:'Trophy',50:'Currency',81:'Research'};
+const RARITY_COLOR={Junk:'#aaa',Basic:'#fff',Fine:'#62a4da',Masterwork:'#1a9306',Rare:'#fcd00b',Exotic:'#ffa405',Ascended:'#fb3e8d',Legendary:'#9f1eba'};
+const RARITY_BORDER={Rare:'#fcd00baa',Exotic:'#ffa405aa',Ascended:'#fb3e8daa',Legendary:'#9f1ebaaa'};
+const PROF_COLOR={Guardian:'#72C1D9',Warrior:'#FFD166',Engineer:'#D09C59',Ranger:'#8CDC82',Thief:'#C08F95',Elementalist:'#F68A87',Mesmer:'#B679D5',Necromancer:'#52A76F',Revenant:'#D16E5A'};
+
+// ── Search input — attached once, persists ───────────────────
+tabSearchInput.addEventListener('input', function() {
+  searchTerm = this.value;
+  renderCurrentTab();
+});
+
+// ── Price cache ──────────────────────────────────────────────
+function savePriceCache(){try{localStorage.setItem(PRICE_CACHE_KEY,JSON.stringify(priceCache));}catch(e){}}
+function loadPriceCache(){
+  try{
+    const v=localStorage.getItem(PRICE_CACHE_KEY);
+    if(v){const p=JSON.parse(v);const now=Date.now();Object.keys(p).forEach(k=>{if(p[k]&&now-p[k].fetchedAt>PRICE_TTL)delete p[k];});priceCache=p;}
+  }catch(e){}
+}
+function priceAge(e){return e&&e.fetchedAt?Date.now()-e.fetchedAt:Infinity;}
+function priceClass(e){if(!e||!e.fetchedAt)return 'none';const a=priceAge(e);if(a>PRICE_TTL)return 'expired';if(a>PRICE_STALE)return 'stale';return 'fresh';}
+function priceAgeLabel(e){if(!e||!e.fetchedAt)return '';const m=Math.floor(priceAge(e)/60000);if(m<2)return 'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60),r=m%60;return h+'h '+r+'m ago';}
+function isExpired(e){return !e||!e.fetchedAt||priceAge(e)>PRICE_TTL;}
+function updatePriceStatusBar(){
+  const entries=Object.values(priceCache).filter(Boolean);
+  if(!entries.length){priceStatusBar.style.display='none';return;}
+  priceStatusBar.style.display='flex';
+  const oldest=entries.reduce((a,b)=>priceAge(a)<priceAge(b)?b:a);
+  const cls=priceClass(oldest);
+  priceDot.className='price-dot '+cls;
+  if(cls==='fresh'){priceStatusText.textContent='Prices current';priceStatusText.style.color='#7a6030';}
+  else if(cls==='stale'){priceStatusText.textContent='Prices '+priceAgeLabel(oldest);priceStatusText.style.color='#9a6030';}
+  else{priceStatusText.textContent='Prices outdated';priceStatusText.style.color='#c84030';}
+}
+function scheduleNextRefresh(){
+  if(priceRefreshTimer)clearTimeout(priceRefreshTimer);
+  const entries=Object.entries(priceCache).filter(([,v])=>v&&v.fetchedAt);
+  if(!entries.length)return;
+  const oldest=entries.reduce((a,b)=>priceAge(a[1])<priceAge(b[1])?b:a);
+  const delay=Math.max(PRICE_TTL-priceAge(oldest[1]),60000);
+  priceRefreshTimer=setTimeout(refreshAllPrices,delay);
+}
+async function refreshAllPrices(){
+  if(priceRefreshTimer){clearTimeout(priceRefreshTimer);priceRefreshTimer=null;}
+  const ids=Object.keys(priceCache).map(Number).filter(Boolean);
+  if(!ids.length)return;
+  refreshAllBtn.disabled=true;refreshAllBtn.textContent='Refreshing...';
+  ids.forEach(id=>{delete priceCache[id];});
+  const chunks=[];for(let i=0;i<ids.length;i+=200)chunks.push(ids.slice(i,i+200));
+  await Promise.all(chunks.map(fetchPriceBatch));
+  savePriceCache();updatePriceStatusBar();scheduleNextRefresh();
+  refreshAllBtn.disabled=false;refreshAllBtn.textContent='Refresh Prices';
+  if(currentPopupItem)renderPopupPrice(currentPopupItem.id);
+}
+refreshAllBtn.addEventListener('click',refreshAllPrices);
+async function fetchPriceBatch(ids){
+  if(!ids.length)return;
+  try{
+    const r=await fetch('https://api.guildwars2.com/v2/commerce/prices?ids='+ids.join(','));
+    if(!r.ok)return;
+    const data=await r.json();const now=Date.now();const fetched=new Set();
+    if(Array.isArray(data))data.forEach(d=>{priceCache[d.id]={buy:(d.buys&&d.buys.unit_price)||0,sell:(d.sells&&d.sells.unit_price)||0,fetchedAt:now};fetched.add(d.id);});
+    ids.forEach(id=>{if(!fetched.has(id))priceCache[id]={buy:0,sell:0,fetchedAt:now,noTp:true};});
+  }catch(e){}
+}
+async function fetchPrice(itemId){
+  if(priceCache[itemId]!==undefined&&!isExpired(priceCache[itemId]))return;
+  if(priceLoading.has(itemId))return;
+  priceLoading.add(itemId);
+  try{
+    const r=await fetch('https://api.guildwars2.com/v2/commerce/prices/'+itemId);
+    const now=Date.now();
+    if(r.ok){const d=await r.json();priceCache[itemId]={buy:(d.buys&&d.buys.unit_price)||0,sell:(d.sells&&d.sells.unit_price)||0,fetchedAt:now};}
+    else priceCache[itemId]={buy:0,sell:0,fetchedAt:now,noTp:true};
+    savePriceCache();updatePriceStatusBar();scheduleNextRefresh();
+  }catch(e){}
+  priceLoading.delete(itemId);
+}
+function formatCoins(c){
+  if(!c||c===0)return '<span style="color:#6a5030">-</span>';
+  const g=Math.floor(c/10000),s=Math.floor((c%10000)/100),co=c%100;
+  let o='';
+  if(g)o+='<span style="color:#fcd00b;font-weight:700">'+g+'<span style="font-size:9px;color:#c8a800">g</span></span> ';
+  if(s||g)o+='<span style="color:#d0d0d0;font-weight:700">'+s+'<span style="font-size:9px;color:#a0a0a0">s</span></span> ';
+  o+='<span style="color:#e07830;font-weight:700">'+co+'<span style="font-size:9px;color:#b05820">c</span></span>';
+  return o;
+}
+function buildPriceHtml(itemId){
+  const p=priceCache[itemId];
+  if(p===undefined||priceLoading.has(itemId))return '<span class="tt-loading">Fetching...</span>';
+  if(p.noTp)return '<span class="tt-no-tp">Not on Trading Post</span>';
+  const cls=priceClass(p);
+  return '<div class="tt-price-row"><span class="tt-price-label">Buy</span><span class="tt-price-val buy">'+formatCoins(p.buy)+'</span></div>'
+        +'<div class="tt-price-row"><span class="tt-price-label">Sell</span><span class="tt-price-val sell">'+formatCoins(p.sell)+'</span></div>'
+        +(cls!=='fresh'?'<div class="tt-freshness '+cls+'">&#9201; '+priceAgeLabel(p)+'</div>':'');
+}
+
+// ── Key storage ──────────────────────────────────────────────
+function saveKey(k){try{const e=btoa(k);sessionStorage.setItem(STORAGE_KEY,e);localStorage.setItem(STORAGE_KEY,e);}catch(e){}}
+function loadSavedKey(){try{const v=sessionStorage.getItem(STORAGE_KEY)||localStorage.getItem(STORAGE_KEY);return v?atob(v):null;}catch(e){return null;}}
+function clearSavedKey(){try{sessionStorage.removeItem(STORAGE_KEY);localStorage.removeItem(STORAGE_KEY);}catch(e){}}
+function saveCurrencies(){try{localStorage.setItem(SELECTED_CUR_KEY,JSON.stringify([...selectedCurrencies]));}catch(e){}}
+function loadSavedCurrencies(){try{const v=localStorage.getItem(SELECTED_CUR_KEY);if(v)selectedCurrencies=new Set(JSON.parse(v));}catch(e){}}
+
+// ── Init ─────────────────────────────────────────────────────
+(function init(){
+  loadSavedCurrencies();loadPriceCache();
+  const saved=loadSavedKey();
+  if(saved){loginKey.value=saved;doLogin();}
+  else setTimeout(()=>loginKey.focus(),100);
+})();
+
+// ── Login ────────────────────────────────────────────────────
+loginBtn.addEventListener('click',doLogin);
+loginKey.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+async function doLogin(){
+  const key=loginKey.value.trim();
+  if(!key){loginError.textContent='Please enter an API key.';return;}
+  loginBtn.disabled=true;loginBtn.textContent='Opening vault...';loginError.textContent='';
+  try{
+    await loadVault(key);
+    saveKey(key);
+    loginScreen.style.display='none';
+    appChrome.style.display='flex';
+  }catch(e){
+    loginError.textContent='Failed: '+e.message;
+    loginBtn.disabled=false;loginBtn.textContent='Open Vault';
+  }
+}
+signOutBtn.addEventListener('click',()=>{
+  clearSavedKey();
+  bankData=null;materialsData=null;walletData=null;
+  characterNames=[];characterData={};characterInventories={};
+  itemCache={};priceCache={};searchTerm='';
+  navTabs.innerHTML='';
+  loginKey.value='';loginError.textContent='';
+  loginBtn.disabled=false;loginBtn.textContent='Open Vault';
+  appChrome.style.display='none';
+  loginScreen.style.display='flex';
+  setTimeout(()=>loginKey.focus(),100);
+});
+
+// ── API ──────────────────────────────────────────────────────
+async function fetchAPI(ep,key){
+  const r=await fetch('https://api.guildwars2.com/v2/'+ep+'?access_token='+key);
+  if(!r.ok)throw new Error(r.status+' - check API key permissions');
+  return r.json();
+}
+async function fetchItems(ids){
+  const missing=[...new Set(ids)].filter(id=>id&&!itemCache[id]);if(!missing.length)return;
+  const chunks=[];for(let i=0;i<missing.length;i+=200)chunks.push(missing.slice(i,i+200));
+  await Promise.all(chunks.map(async c=>{
+    try{const d=await fetch('https://api.guildwars2.com/v2/items?ids='+c.join(',')).then(r=>r.json());if(Array.isArray(d))d.forEach(it=>{itemCache[it.id]=it;});}catch(e){}
+  }));
+}
+async function loadVault(key){
+  setStatus('<span class="spinner"></span> Connecting to vault...');
+  const [bank,mats,wallet,chars,account,curDefs]=await Promise.all([
+    fetchAPI('account/bank',key),fetchAPI('account/materials',key),fetchAPI('account/wallet',key),
+    fetchAPI('characters',key),fetchAPI('account',key),
+    fetch('https://api.guildwars2.com/v2/currencies?ids=all').then(r=>r.json())
+  ]);
+  accountName.textContent=account.name||'';
+  bankData=bank;materialsData=mats;walletData=wallet;
+  currencyDefs=Array.isArray(curDefs)?curDefs:[];characterNames=chars;
+  setStatus('<span class="spinner"></span> Loading character inventories...');
+  await Promise.all(chars.map(async name=>{
+    try{
+      const [inv,info]=await Promise.all([
+        fetchAPI('characters/'+encodeURIComponent(name)+'/inventory',key),
+        fetchAPI('characters/'+encodeURIComponent(name),key)
+      ]);
+      characterInventories[name]=inv.bags||[];
+      characterData[name]={profession:info.profession||'',race:info.race||''};
+    }catch(e){characterInventories[name]=[];characterData[name]={profession:'',race:''};}
+  }));
+  const allIds=[];
+  bank.filter(Boolean).forEach(s=>allIds.push(s.id));
+  mats.forEach(m=>allIds.push(m.id));
+  Object.values(characterInventories).forEach(bags=>bags.forEach(bag=>{if(bag&&bag.inventory)bag.inventory.filter(Boolean).forEach(s=>allIds.push(s.id));}));
+  setStatus('<span class="spinner"></span> Loading item data...');
+  await fetchItems(allIds);
+  const uniqueIds=[...new Set(allIds)].filter(Boolean);
+  const needsPrice=uniqueIds.filter(id=>!priceCache[id]||isExpired(priceCache[id]));
+  if(needsPrice.length){
+    const chunks=[];for(let i=0;i<needsPrice.length;i+=200)chunks.push(needsPrice.slice(i,i+200));
+    if(chunks[0])await fetchPriceBatch(chunks[0]);
+    chunks.slice(1).forEach(c=>fetchPriceBatch(c));
+    savePriceCache();
+  }
+  buildNav();buildCurrencyModal();renderCurrencyBar();updatePriceStatusBar();scheduleNextRefresh();
+  currentTab='bank';setActiveTab('bank');
+  searchTerm='';tabSearchInput.value='';
+  render();
+}
+
+function setStatus(html){mainContent.innerHTML='<div class="status">'+html+'</div>';}
+function updateInfo(slots,items,shown){$('infoSlots').textContent=slots;$('infoItems').textContent=items;$('infoShown').textContent=shown;}
+
+// ── Nav ──────────────────────────────────────────────────────
+function buildNav(){
+  navTabs.innerHTML='';
+  [{id:'bank',label:'Bank'},{id:'materials',label:'Materials'},{id:'characters',label:'Characters'}].forEach(t=>{
+    const el=document.createElement('div');el.className='nav-tab';el.dataset.tab=t.id;el.textContent=t.label;
+    el.addEventListener('click',()=>{
+      if(globalSearchActive)closeGlobalSearch();
+      currentTab=t.id;setActiveTab(t.id);
+      searchTerm='';tabSearchInput.value='';
+      render();
+    });
+    navTabs.appendChild(el);
+  });
+}
+function setActiveTab(id){navTabs.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));}
+
+// ── Currency ─────────────────────────────────────────────────
+manageBtn.addEventListener('click',()=>currencyModal.classList.add('visible'));
+cmBackdrop.addEventListener('click',()=>currencyModal.classList.remove('visible'));
+cmDone.addEventListener('click',()=>{currencyModal.classList.remove('visible');saveCurrencies();renderCurrencyBar();});
+function buildCurrencyModal(){
+  cmList.innerHTML='';
+  [...currencyDefs].sort((a,b)=>a.order-b.order).forEach(c=>{
+    const el=document.createElement('div');el.className='cm-item'+(selectedCurrencies.has(c.id)?' selected':'');
+    el.innerHTML='<img src="'+(c.icon||'')+'" alt="" onerror="this.style.display=\'none\'"><span class="cm-item-name" title="'+c.name+'">'+c.name+'</span><div class="cm-check">'+(selectedCurrencies.has(c.id)?'&#10003;':'')+'</div>';
+    el.addEventListener('click',()=>{
+      if(selectedCurrencies.has(c.id)){selectedCurrencies.delete(c.id);el.classList.remove('selected');el.querySelector('.cm-check').innerHTML='';}
+      else{selectedCurrencies.add(c.id);el.classList.add('selected');el.querySelector('.cm-check').innerHTML='&#10003;';}
+    });
+    cmList.appendChild(el);
+  });
+}
+function renderCurrencyBar(){
+  currencyDisplay.innerHTML='';if(!walletData)return;
+  const wm={};walletData.forEach(w=>wm[w.id]=w.value);
+  [...selectedCurrencies]
+    .sort((a,b)=>((currencyDefs.find(c=>c.id===a)||{order:999}).order)-((currencyDefs.find(c=>c.id===b)||{order:999}).order))
+    .forEach(id=>{
+      const def=currencyDefs.find(c=>c.id===id);if(!def)return;
+      const val=wm[id]||0;
+      const el=document.createElement('div');el.className='currency-item';el.title=def.name;
+      let inner='<img src="'+(def.icon||'')+'" alt="'+def.name+'" onerror="this.style.display=\'none\'">';
+      inner+='<span class="currency-name">'+def.name+'</span>';
+      if(id===1){
+        // Gold: show g/s/c with distinct color + size per denomination
+        const g=Math.floor(val/10000),s=Math.floor((val%10000)/100),co=val%100;
+        inner+='<span style="display:flex;align-items:baseline;gap:4px;">';
+        if(g)inner+='<span class="currency-gold">'+g+'<span class="denom">g</span></span>';
+        inner+='<span class="currency-silver">'+s+'<span class="denom">s</span></span>';
+        inner+='<span class="currency-copper">'+co+'<span class="denom">c</span></span>';
+        inner+='</span>';
+      } else {
+        inner+='<span class="currency-val">'+val.toLocaleString()+'</span>';
+      }
+      el.innerHTML=inner;
+      currencyDisplay.appendChild(el);
+    });
+}
+
+// ── Global search ────────────────────────────────────────────
+globalSearchBtn.addEventListener('click',()=>{if(globalSearchActive)closeGlobalSearch();else openGlobalSearch();});
+globalSearchClear.addEventListener('click',()=>{globalSearchInput.value='';globalSearchTerm='';globalSearchInput.focus();renderGlobalSearch();});
+let gsDebounce=null;
+globalSearchInput.addEventListener('input',e=>{globalSearchTerm=e.target.value;clearTimeout(gsDebounce);gsDebounce=setTimeout(renderGlobalSearch,150);});
+function openGlobalSearch(){
+  globalSearchActive=true;globalSearchPanel.style.display='flex';tabFilterBar.classList.remove('visible');
+  globalSearchBtn.style.background='#3a2005';
+  globalSearchInput.value=globalSearchTerm;globalSearchInput.focus();globalSearchInput.select();
+  renderGlobalSearch();
+}
+function closeGlobalSearch(){
+  globalSearchActive=false;globalSearchTerm='';
+  globalSearchPanel.style.display='none';
+  globalSearchBtn.style.background='';
+  setActiveTab(currentTab);render();
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(globalSearchActive){closeGlobalSearch();return;}if(itemPopup.classList.contains('visible')){closePopup();return;}}
+  if((e.ctrlKey||e.metaKey)&&e.key==='f'&&bankData){e.preventDefault();openGlobalSearch();}
+});
+function collectAllResults(q){
+  const ql=q.toLowerCase(),groups=[];
+  function match(slot){if(!slot)return false;const it=itemCache[slot.id];return it&&it.name.toLowerCase().includes(ql);}
+  if(bankData){
+    const SPTS=30,nt=Math.ceil(bankData.length/SPTS);
+    for(let t=0;t<nt;t++){
+      const slots=bankData.slice(t*SPTS,(t+1)*SPTS).filter(match);
+      if(slots.length)groups.push({label:'Bank - Tab '+(t+1),tabId:'bank',slots});
+    }
+  }
+  if(materialsData){
+    const slots=materialsData.filter(m=>m.count>0&&match({id:m.id,count:m.count})).map(m=>({id:m.id,count:m.count}));
+    if(slots.length)groups.push({label:'Material Storage',tabId:'materials',slots});
+  }
+  characterNames.forEach(name=>{
+    const bags=characterInventories[name]||[],slots=[];
+    bags.forEach(bag=>{if(bag&&bag.inventory)bag.inventory.forEach(s=>{if(match(s))slots.push(s);});});
+    if(slots.length)groups.push({label:'Character - '+name,tabId:'characters',slots});
+  });
+  return groups;
+}
+function renderGlobalSearch(){
+  const q=globalSearchTerm.trim();
+  if(!q){mainContent.innerHTML='<div class="gs-empty"><span class="gs-empty-icon">&#128269;</span>Start typing to search across all locations...</div>';globalSearchCount.textContent='';updateInfo('-','-','-');return;}
+  const groups=collectAllResults(q);
+  const total=groups.reduce((s,g)=>s+g.slots.length,0);
+  globalSearchCount.innerHTML=total>0?'<span>'+total+'</span> item'+(total!==1?'s':'')+' in <span>'+groups.length+'</span> location'+(groups.length!==1?'s':''):'No results';
+  updateInfo('-',total,total);
+  if(!total){mainContent.innerHTML='<div class="gs-empty"><span class="gs-empty-icon">&#128269;</span>No items matching "'+q+'" found anywhere.</div>';return;}
+  const container=document.createElement('div');container.className='gs-results';
+  groups.forEach(group=>{
+    const grp=document.createElement('div');grp.className='gs-group';
+    const hdr=document.createElement('div');hdr.className='gs-group-header';
+    hdr.innerHTML='<span class="gs-group-title">'+group.label+'</span><span class="gs-group-badge">'+group.slots.length+'</span><button class="gs-goto">Go to tab &rarr;</button><span class="gs-group-arrow">&#9662;</span>';
+    hdr.querySelector('.gs-group-arrow').addEventListener('click',e=>{e.stopPropagation();grp.classList.toggle('collapsed');});
+    hdr.querySelector('.gs-goto').addEventListener('click',e=>{
+      e.stopPropagation();closeGlobalSearch();
+      currentTab=group.tabId;setActiveTab(group.tabId);
+      searchTerm=q;tabSearchInput.value=q;render();
+    });
+    hdr.addEventListener('click',()=>grp.classList.toggle('collapsed'));
+    const body=document.createElement('div');body.className='gs-group-body';
+    group.slots.forEach(slot=>body.appendChild(buildSlot(slot)));
+    grp.appendChild(hdr);grp.appendChild(body);container.appendChild(grp);
+  });
+  mainContent.innerHTML='';mainContent.appendChild(container);
+}
+
+// ── Popup ────────────────────────────────────────────────────
+function wikiUrl(name){return 'https://wiki.guildwars2.com/wiki/'+encodeURIComponent(name.replace(/ /g,'_'));}
+async function openPopup(item,count,x,y){
+  currentPopupItem=item;currentPopupCount=count;
+  $('popName').textContent=item.name;
+  $('popRarity').textContent=item.rarity||'';$('popRarity').style.color=RARITY_COLOR[item.rarity]||'#e8d8b0';
+  $('popTp').innerHTML='<div class="pop-tp-loading">Loading prices...</div>';popFreshness.style.display='none';
+  itemPopup.classList.add('visible');popOverlay.classList.add('visible');positionPopup(x,y);
+  if(!priceCache[item.id]||isExpired(priceCache[item.id]))await fetchPrice(item.id);
+  renderPopupPrice(item.id);
+}
+function renderPopupPrice(itemId){
+  const p=priceCache[itemId];
+  if(!p){$('popTp').innerHTML='<div class="pop-tp-loading">Loading...</div>';return;}
+  if(p.noTp){$('popTp').innerHTML='<div class="pop-tp-loading" style="color:#6a5030">Not on Trading Post</div>';popFreshness.style.display='none';return;}
+  const t=n=>n*currentPopupCount;
+  let h='<div class="pop-tp-row"><span class="pop-tp-label">Buy (ea.)</span><span class="pop-tp-val buy">'+formatCoins(p.buy)+'</span></div>';
+  h+='<div class="pop-tp-row"><span class="pop-tp-label">Sell (ea.)</span><span class="pop-tp-val sell">'+formatCoins(p.sell)+'</span></div>';
+  if(currentPopupCount>1){
+    h+='<div style="border-top:1px solid #2a1a08;margin:5px 0 3px"></div>';
+    h+='<div class="pop-tp-row"><span class="pop-tp-label">Stack buy x'+currentPopupCount+'</span><span class="pop-tp-val buy">'+formatCoins(t(p.buy))+'</span></div>';
+    h+='<div class="pop-tp-row"><span class="pop-tp-label">Stack sell x'+currentPopupCount+'</span><span class="pop-tp-val sell">'+formatCoins(t(p.sell))+'</span></div>';
+  }
+  $('popTp').innerHTML=h;
+  const cls=priceClass(p);
+  popFreshnessLabel.textContent='Prices from '+priceAgeLabel(p);
+  popFreshnessLabel.className='pop-freshness-label '+cls;
+  popFreshness.style.display='flex';popRefreshBtn.disabled=false;popRefreshBtn.textContent='Refresh';
+}
+popRefreshBtn.addEventListener('click',async()=>{
+  if(!currentPopupItem)return;popRefreshBtn.disabled=true;popRefreshBtn.textContent='...';
+  delete priceCache[currentPopupItem.id];await fetchPrice(currentPopupItem.id);
+  renderPopupPrice(currentPopupItem.id);updatePriceStatusBar();
+  popRefreshBtn.disabled=false;popRefreshBtn.textContent='Refresh';
+});
+function positionPopup(x,y){
+  const pw=itemPopup.offsetWidth||240,ph=itemPopup.offsetHeight||200;
+  let lx=x+14,ly=y-ph/2;
+  if(lx+pw>window.innerWidth-10)lx=x-pw-14;if(ly<10)ly=10;if(ly+ph>window.innerHeight-10)ly=window.innerHeight-ph-10;
+  itemPopup.style.left=lx+'px';itemPopup.style.top=ly+'px';
+}
+function closePopup(){itemPopup.classList.remove('visible');popOverlay.classList.remove('visible');currentPopupItem=null;}
+popOverlay.addEventListener('click',closePopup);
+$('popWiki').addEventListener('click',()=>{if(currentPopupItem)window.open(wikiUrl(currentPopupItem.name),'_blank');});
+$('popCopy').addEventListener('click',()=>{
+  if(currentPopupItem)navigator.clipboard.writeText(currentPopupItem.name).then(()=>{
+    $('popCopy').textContent='Copied!';setTimeout(()=>$('popCopy').textContent='Copy Name',1500);
+  });
+});
+
+// ── Slot builder ─────────────────────────────────────────────
+function buildSlot(slotData){
+  const el=document.createElement('div');el.className='slot'+(slotData?'':' empty');
+  if(!slotData)return el;
+  const item=itemCache[slotData.id];const count=slotData.count||1;
+  if(item){
+    if(item.icon){const img=document.createElement('img');img.className='item-icon';img.src=item.icon;img.alt=item.name;img.loading='lazy';el.appendChild(img);}
+    if(RARITY_BORDER[item.rarity])el.style.borderColor=RARITY_BORDER[item.rarity];
+    if(count>1){const cnt=document.createElement('div');cnt.className='count';cnt.textContent=count>=10000?(count/1000).toFixed(0)+'k':count;el.appendChild(cnt);}
+    const pbId='pb'+item.id+'_'+Math.random().toString(36).slice(2,6);
+    const tip=document.createElement('div');tip.className='tooltip-box';
+    tip.innerHTML='<strong>'+item.name+'</strong>'
+      +'<div class="tt-rarity" style="color:'+(RARITY_COLOR[item.rarity]||'#e8d8b0')+'">'+(item.rarity||'')+'</div>'
+      +(count>1?'<div style="font-size:11px;color:#8a7040;margin-bottom:3px">x'+count.toLocaleString()+'</div>':'')
+      +'<div class="tt-price-block" id="'+pbId+'">'+buildPriceHtml(item.id)+'</div>'
+      +'<div class="tt-hint">Click: info &middot; Double-click: wiki</div>';
+    el.appendChild(tip);
+    let hovered=false;
+    el.addEventListener('mouseenter',async()=>{
+      const r=el.getBoundingClientRect(),ttW=220;
+      el.classList.toggle('tt-below', r.top < 240);
+      el.classList.toggle('tt-left', r.left + r.width/2 < ttW/2 + 12);
+      el.classList.toggle('tt-right', !el.classList.contains('tt-left') && r.right - r.width/2 + ttW/2 > window.innerWidth - 12);
+      if(hovered&&!isExpired(priceCache[item.id]))return;hovered=true;
+      if(!priceCache[item.id]||isExpired(priceCache[item.id])){await fetchPrice(item.id);savePriceCache();updatePriceStatusBar();}
+      const pb=document.getElementById(pbId);if(pb)pb.innerHTML=buildPriceHtml(item.id);
+    });
+    el.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(clickTimer){clearTimeout(clickTimer);clickTimer=null;window.open(wikiUrl(item.name),'_blank');}
+      else{clickTimer=setTimeout(()=>{clickTimer=null;openPopup(item,count,e.clientX,e.clientY);},230);}
+    });
+  }
+  return el;
+}
+
+// ── Tab renderers ────────────────────────────────────────────
+// NOTE: search filter is applied in JS at render time using the shared
+// `searchTerm` var. The input element lives outside mainContent so typing
+// never triggers a DOM re-render of the input itself.
+
+function renderCurrentTab(){
+  if(globalSearchActive)return;
+  if(currentTab==='bank')renderBank();
+  else if(currentTab==='materials')renderMaterials();
+  else if(currentTab==='characters')renderCharacters();
+}
+
+function match(slot){
+  if(!slot)return false;
+  if(!searchTerm)return true;
+  const it=itemCache[slot.id];
+  return it&&it.name.toLowerCase().includes(searchTerm.toLowerCase());
+}
+
+function renderBank(){
+  tabFilterBar.classList.add('visible');
+  const SPTS=30;
+  const numTabs=Math.ceil(bankData.length/SPTS);
+  const frag=document.createDocumentFragment();
+  let totalItems=0,shownItems=0;
+
+  for(let t=0;t<numTabs;t++){
+    const start=t*SPTS;
+    const tabSlots=bankData.slice(start,start+SPTS);
+    const visibleCount=tabSlots.filter(s=>match(s)).length;
+    if(searchTerm&&visibleCount===0)continue; // hide whole tab section when nothing matches
+
+    const sec=document.createElement('div');sec.className='bank-section';
+    const hdr=document.createElement('div');hdr.className='bank-section-header';
+    hdr.innerHTML='Bank Tab '+(t+1)+'<span>Slots '+(start+1)+'&ndash;'+Math.min(start+SPTS,bankData.length)+'</span>';
+    sec.appendChild(hdr);
+    const grid=document.createElement('div');grid.className='items-grid';
+    tabSlots.forEach(slot=>{
+      if(slot)totalItems++;
+      if(slot&&!match(slot)){grid.appendChild(buildSlot(null));return;} // dim placeholder
+      if(slot)shownItems++;
+      grid.appendChild(buildSlot(slot));
+    });
+    sec.appendChild(grid);frag.appendChild(sec);
+  }
+  mainContent.innerHTML='';mainContent.appendChild(frag);
+  updateInfo(bankData.length,totalItems,searchTerm?shownItems:totalItems);
+}
+
+function renderMaterials(){
+  tabFilterBar.classList.add('visible');
+  const cats={};
+  materialsData.forEach(m=>{
+    if(m.count===0&&!searchTerm)return;
+    if(!match({id:m.id,count:m.count}))return;
+    const cat=m.category||0;if(!cats[cat])cats[cat]=[];cats[cat].push(m);
+  });
+  const frag=document.createDocumentFragment();
+  let shown=0;
+  Object.entries(cats).sort((a,b)=>a[0]-b[0]).forEach(([cat,items])=>{
+    shown+=items.length;
+    const sec=document.createElement('div');sec.className='mat-cat';
+    const t=document.createElement('div');t.className='section-title';t.textContent=MAT_CATS[cat]||'Category '+cat;
+    sec.appendChild(t);const grid=document.createElement('div');grid.className='items-grid';
+    items.forEach(m=>grid.appendChild(buildSlot({id:m.id,count:m.count})));
+    sec.appendChild(grid);frag.appendChild(sec);
+  });
+  mainContent.innerHTML='';mainContent.appendChild(frag);
+  updateInfo(materialsData.length,materialsData.filter(m=>m.count>0).length,shown);
+}
+
+function renderCharacters(){
+  tabFilterBar.classList.add('visible');
+  const frag=document.createDocumentFragment();
+  let totalSlots=0,totalItems=0,shown=0;
+  characterNames.forEach(name=>{
+    const bags=characterInventories[name]||[];
+    const allSlots=[];
+    bags.forEach(bag=>{if(bag&&bag.inventory)bag.inventory.forEach(s=>allSlots.push(s));});
+    totalSlots+=allSlots.length;totalItems+=allSlots.filter(Boolean).length;
+    const filtered=allSlots.filter(s=>match(s));
+    shown+=filtered.length;
+    if(searchTerm&&filtered.length===0)return;
+
+    const sec=document.createElement('div');sec.className='char-section';
+    const cd=characterData[name]||{};
+    const profColor=PROF_COLOR[cd.profession]||'#7a5518';
+    const hdr=document.createElement('div');hdr.className='char-header';
+    hdr.style.borderLeftColor=profColor;
+    hdr.innerHTML='<span class="char-name">'+name+'</span>'
+      +(cd.race||cd.profession?'<span class="char-meta">'+[cd.race,cd.profession].filter(Boolean).join(' &middot; ')+'</span>':'')
+      +'<span class="char-count">'+filtered.length+' item'+(filtered.length!==1?'s':'')+'</span>';
+    sec.appendChild(hdr);
+    const grid=document.createElement('div');grid.className='items-grid';
+    allSlots.forEach(slot=>{
+      if(slot&&!match(slot)){grid.appendChild(buildSlot(null));return;}
+      grid.appendChild(buildSlot(slot));
+    });
+    sec.appendChild(grid);frag.appendChild(sec);
+  });
+  mainContent.innerHTML='';mainContent.appendChild(frag);
+  updateInfo(totalSlots,totalItems,searchTerm?shown:totalItems);
+}
+
+function render(){
+  closePopup();
+  if(globalSearchActive){renderGlobalSearch();return;}
+  tabFilterBar.classList.remove('visible');
+  renderCurrentTab();
+}
+</script>
+</body>
+</html>
